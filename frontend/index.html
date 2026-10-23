@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NGO Donation Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
+  <!-- pdf.js reads the text of receipt PDFs for the automatic audit -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 21s-7-4.35-9.33-9.04C1.2 9 2.9 5 6.6 5c2.1 0 3.4 1.2 4.4 2.6C12 6.2 13.3 5 15.4 5c3.7 0 5.4 4 3.93 6.96C19 16.65 12 21 12 21z" />
+          </svg>
+        </span>
+        <div>
+          <h1>NGO Donation Tracker</h1>
+          <p class="brand-sub">Transparent giving on the blockchain</p>
+        </div>
+      </div>
+      <nav class="tabs" aria-label="Sections">
+        <a href="#causes" class="tab" data-tab="causes">Causes <span id="tabCauseCount" class="tab-count"></span></a>
+        <a href="#create" class="tab" data-tab="create">Create Cause</a>
+        <a href="#activity" class="tab" data-tab="activity">Activity</a>
+        <a href="#admin" class="tab" data-tab="admin" id="tabAdmin" hidden>Admin</a>
+      </nav>
+      <div class="wallet">
+        <span id="account">Not connected</span>
+        <button id="connectBtn">Connect MetaMask</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <p id="status" role="status" aria-live="polite"></p>
+
+    <!-- Tab: Causes -->
+    <div class="tab-panel" data-panel="causes">
+      <section class="hero">
+        <h2>Every donation, accounted for.</h2>
+        <p class="intro">
+          Every donation and every expenditure is recorded on the blockchain. Anyone can verify how much
+          a cause raised, exactly how it was spent, and what remains &mdash; no one, not even the NGO, can edit the record.
+        </p>
+        <ul class="pillars">
+          <li><strong>On-chain donations</strong> recorded against each donor's wallet</li>
+          <li><strong>Itemized spending</strong> with SHA-256 receipt proofs</li>
+          <li><strong>Automatic audit</strong> &mdash; every payment needs a matching, never-reused receipt</li>
+          <li><strong>Refunds</strong> if a goal is missed by the deadline</li>
+          <li><strong>Publicly verifiable</strong> &mdash; no wallet needed to view</li>
+        </ul>
+      </section>
+
+      <section class="causes-section">
+        <div class="section-head">
+          <h2>Causes</h2>
+          <span class="section-hint">Newest first &middot; updates live with every block</span>
+        </div>
+        <div id="causes"><p class="loading">Loading causes&hellip;</p></div>
+      </section>
+    </div>
+
+    <!-- Tab: Create Cause -->
+    <div class="tab-panel" data-panel="create" hidden>
+      <section class="card create-card">
+        <div class="section-head">
+          <h2>Create a Cause</h2>
+          <span class="tag">For NGOs &amp; individuals</span>
+        </div>
+        <p class="section-sub">The connected wallet becomes the NGO for this cause. Donations close once the goal is reached. After that, every payment is audited automatically: it needs a receipt PDF whose amount and supplier wallet match the payment, and a receipt can never be used twice.</p>
+        <form id="createForm" class="form-grid">
+          <label class="field">
+            <span class="field-label">Title</span>
+            <input id="title" placeholder="e.g. Assam Flood Relief" required />
+          </label>
+          <label class="field">
+            <span class="field-label">Funding goal (ETH)</span>
+            <input id="goal" type="number" step="0.001" min="0.001" placeholder="5" required />
+          </label>
+          <label class="field field-full">
+            <span class="field-label">Description</span>
+            <textarea id="description" rows="2" placeholder="What will the funds be used for?"></textarea>
+          </label>
+          <label class="field">
+            <span class="field-label">Category</span>
+            <select id="category">
+              <option value="0">Disaster relief</option>
+              <option value="1">Education</option>
+              <option value="2">Health</option>
+              <option value="3">Food</option>
+              <option value="4">Other</option>
+            </select>
+          </label>
+          <label class="field">
+            <span class="field-label">Deadline</span>
+            <input id="deadline" type="datetime-local" required />
+          </label>
+          <div class="field">
+            <span class="field-label">Spending rules</span>
+            <p class="auditor-note">Automatic audit: compulsory receipt PDF, amount and supplier must match the receipt, no reused receipts, no payments to yourself.</p>
+          </div>
+          <div class="field field-submit">
+            <button type="submit">Create Cause</button>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <!-- Tab: Activity -->
+    <div class="tab-panel" data-panel="activity" hidden>
+      <section class="card activity-section">
+        <div class="section-head">
+          <h2>Recent Activity</h2>
+          <span class="live-dot">Live</span>
+        </div>
+        <p class="section-sub">Every transaction on the platform, newest first (latest 50). Hover a time or address for the full value. Built from the contract's events &mdash; the on-chain log every dApp syncs from.</p>
+        <div id="activity" class="activity-table-wrap"><p class="activity-empty">Loading&hellip;</p></div>
+      </section>
+    </div>
+
+    <!-- Tab: Admin (contract owner only) -->
+    <div class="tab-panel" data-panel="admin" hidden>
+      <p id="adminLocked" class="locked-note">The Admin Panel is only available to the platform owner. Connect MetaMask with the owner account (#0).</p>
+      <section id="ownerPanel" class="card owner-panel" hidden>
+        <div class="section-head">
+          <h2>Admin Panel</h2>
+          <span class="tag tag-owner">Contract owner only</span>
+        </div>
+
+        <h3 class="owner-subhead">Verify a cause creator</h3>
+        <p class="section-sub">After checking documents off-chain, record who is behind a wallet: a <b>registered organisation</b> (NGO, trust, society; check registration and FCRA papers) or an <b>individual</b> raising money for a personal cause such as medical treatment (check ID and supporting documents, e.g. hospital estimate). Unverified creators can still create causes; donors simply see the badge.</p>
+        <div class="owner-form verify-form">
+          <input id="verifyAddress" placeholder="Creator wallet address (0x...)" />
+          <select id="verifyType" aria-label="Creator type">
+            <option value="1">Registered organisation</option>
+            <option value="2">Individual (personal cause)</option>
+          </select>
+          <button id="verifyBtn" type="button">Verify</button>
+          <button id="unverifyBtn" type="button" class="secondary">Remove verification</button>
+        </div>
+
+      </section>
+    </div>
+
+    <!-- Used by the "Verify" receipt buttons to pick a file to hash -->
+    <input id="verifyFile" type="file" hidden />
+  </main>
+
+  <footer class="app-footer">
+    <div class="footer-inner">
+      <div>
+        <strong>NGO Donation Transparency Tracker</strong>
+        <span class="footer-sub">Blockchain mini project &middot; Solidity + Hardhat + ethers.js</span>
+      </div>
+      <div class="footer-meta">
+        <div class="footer-item">
+          <span class="footer-label">Contract</span>
+          <code id="contractAddress">-</code>
+        </div>
+        <div class="footer-item">
+          <span class="footer-label">Network</span>
+          <span class="network-pill">Hardhat Local &middot; 31337</span>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
